@@ -1,0 +1,543 @@
+PHP Unit testing
+
+a test in php unit is a class
+inside a test class has to be a function with a descriptive name
+assertion: verifies, that some conditions are true
+in the assertEquals function first comes the expected value than the value with witch you want to compare it:
+<?php
+use PHPUnit\Framework\TestCase;
+class ExampleTest extends TestCase
+{
+     public function testAddingTwoPlusTwoResultsInFour()
+     {
+         $this->assertEquals(4, 2+2);
+     }
+}
+?>
+basically you create a test class that extends the TestCase from PHPunit, create public functions within with starts with "test" and write assertions inside these methods that tests code
+to test the behaviour of function or a class use multiple assertions:
+first you need to require the php file where the functions is written, then write the assertions, you can have more than one assertion in a test
+test a function:
+<?php
+
+//returns the sum of two numbers
+function add($a, $b)
+{
+    return $a + $b;
+}
+?>
+test:
+<?php
+
+use PHPUnit\Framework\TestCase;
+class FunctionTest extends TestCase
+{
+    public function testAddReturnsTheCorrectSum()
+    {
+        require '/home/martina/PhpstormProjects/PHPUnitCourse/functions.php';
+        $this->assertEquals(4, add(2,2));
+    }
+    public function testAddDoesNotReturnTheIncorrectSum()
+    {
+        $this->assertNotEquals(5, add(2,2));
+    }
+}
+?>
+test a class
+<?php
+class User
+{
+    public $first_name;
+    public $surname;
+    public function getFullName()
+    {
+        return trim("$this->first_name $this->surname");
+    }
+}
+?>
+test
+<?php
+use PHPUnit\Framework\TestCase;
+class UserTest extends TestCase
+{
+    public function testReturnsFullName()
+    {
+        require '/home/martina/PhpstormProjects/PHPUnitCourse/User.php';
+        $user = new User();
+        $user->first_name = "Martina";
+        $user->surname = "Schwerdtfeger";
+        $this->assertEquals('Martina Schwerdtfeger', $user->getFullName());
+    }
+    public function testFullNameIsEmptyByDefault()
+    {
+        $user = new User();
+        $this->assertEquals('', $user->getFullName());
+    }
+}
+?>
+list of assertions: https://phpunit.readthedocs.io/en/8.1/assertions.html
+output in the command line can be configured via xml file:
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit colors="true"
+verbose="true">
+    <testsuite name = "Test suite">
+        <directory>tests</directory>
+    </testsuite>
+</phpunit>
+full configuration options: https://phpunit.readthedocs.io/en/8.1/configuration.html
+autoloading the files with composers autoloader under "prs-4"
+Test dependencies: with a comment block before the function with the @depends connotation
+Before dependencies:
+<?php
+
+use PHPUnit\Framework\TestCase;
+
+class QueueTest extends TestCase
+{
+    public function testNewQueueIsEmpty()
+    {
+        require '/home/martina/PhpstormProjects/PHPUnitCourse/src/classes/Queue.php';
+        $queue = new Queue();
+        $this->assertEquals(0, $queue->getCount());
+    }
+    public function testAnItemIsAddedToTheQueue(Queue $queue)
+    {
+		$queue = new Queue();
+        $queue->push('test');
+        $this->assertEquals(1, $queue->getCount());
+    }
+    public function testAnItemIsRemovedFromTheQueue()
+    {
+        $queue = new Queue();
+        $queue->push('test');
+        $item=$queue->pop();
+        $this->assertEquals(0, $queue->getCount());
+        $this->assertEquals('test', $item);
+    }
+}
+?>
+After dependencies:
+<?php
+use PHPUnit\Framework\TestCase;
+class QueueTest extends TestCase
+{
+    public function testNewQueueIsEmpty()
+    {
+        require '/home/martina/PhpstormProjects/PHPUnitCourse/src/classes/Queue.php';
+        $queue = new Queue();
+        $this->assertEquals(0, $queue->getCount());
+        return $queue;
+    }
+    /**
+     *@depends testNewQueueIsEmpty
+     */
+    public function testAnItemIsAddedToTheQueue(Queue $queue)
+    {
+        $queue->push('test');
+        $this->assertEquals(1, $queue->getCount());
+        return $queue;
+    }
+    /**
+     *@depends testAnItemIsAddedToTheQueue
+     */
+    public function testAnItemIsRemovedFromTheQueue(Queue $queue)
+    {
+        $item=$queue->pop();
+        $this->assertEquals(0, $queue->getCount());
+        $this->assertEquals('test', $item);
+    }
+}
+?>
+Fixtures: setting up the known state
+<?php
+use PHPUnit\Framework\TestCase;
+require '/home/martina/PhpstormProjects/PHPUnitCourse/src/classes/Queue.php';
+class QueueTest extends TestCase
+{
+    protected $queue;
+    protected function setUp(): void
+    {
+        $this->queue = new Queue();
+    }
+	protected function tearDown(): void
+    {
+        unset($this->queue);
+    }
+    public function testNewQueueIsEmpty()
+    {
+        $this->assertEquals(0, $this->queue->getCount());
+    }
+    public function testAnItemIsAddedToTheQueue()
+    {
+        $this->queue->push('test');
+        $this->assertEquals(1, $this->queue->getCount());
+    }
+    public function testAnItemIsRemovedFromTheQueue()
+    {
+        $this->queue->push('test');
+        $item=$this->queue->pop();
+        $this->assertEquals(0, $this->queue->getCount());
+        $this->assertEquals('test', $item);
+    }
+}
+?>
+Share fixtures, this demands to clear the object before each function as it is shared between all the functions:
+<?php
+
+use PHPUnit\Framework\TestCase;
+require '/home/martina/PhpstormProjects/PHPUnitCourse/src/classes/Queue.php';
+class QueueTest extends TestCase
+{
+    protected static $queue;
+    protected function setUp(): void
+    {
+        static::$queue->clear();
+    }
+    protected function tearDown(): void
+    {
+    }
+    public static function setUpBeforeClass(): void
+    {
+        static::$queue = new Queue();
+    }
+    public static function tearDownAfterClass(): void
+    {
+        static::$queue = null;
+    }
+    public function testNewQueueIsEmpty()
+    {
+        $this->assertEquals(0, static::$queue->getCount());
+    }
+    public function testAnItemIsAddedToTheQueue()
+    {
+        static::$queue->push('test');
+        $this->assertEquals(1, static::$queue->getCount());
+    }
+    public function testAnItemIsRemovedFromTheQueue()
+    {
+        static::$queue->push('test');
+        $item=static::$queue->pop();
+        $this->assertEquals(0, static::$queue->getCount());
+        $this->assertEquals('test', $item);
+    }
+    public function testAnItemIsRemovedFromTheFrontOfTheQueue()
+    {
+        static::$queue->push('test1');
+        static::$queue->push('test2');
+        $item=static::$queue->pop();
+        $this->assertEquals('test1', $item);
+    }
+}
+?>
+testing, if an exception is thrown with "expectException"
+<?php
+   public function testExceptionThrownWhenAddingAnItemToAFullQueue()
+    {
+        for ($i=0; $i<Queue::MAX_ITEMS; $i++) {
+            $this->queue->push($i);
+        }
+        $this->expectException(QueueException::class);
+        $this->expectExceptionMessage("Queue is full");
+        $this->queue->push("testitest");
+    }
+}
+?>
+Test doubles: mocks and stubs
+when a class is dependend on other classes or databases, you might need to create a mock class, so the Interactions will not affect the database or for example send an email every time the test runs, to remove dependencies
+with "createMock()" you can create a mock version of a class, that will return null, the methods you can call are called stubs, they replace the original methods from the original class
+<?php
+use PHPUnit\Framework\TestCase;
+require '/home/martina/PhpstormProjects/PHPUnitCourse/src/classes/Mailer.php';
+class MockTest extends TestCase
+{
+    public function testMock()
+    {
+        $mock = $this->createMock(Mailer::class);
+        $mock->method('sendMessage')->willReturn(true);
+        $result = $mock->sendMessage('example@example.org', 'Hello');
+        $this->assertTrue($result);
+    }
+}
+?>
+Dependency injections: when a class is dependent on another class, use depency injections so it is not hard coded and in the test you can use mock objects
+passing dependent objects into another object, for example using a setter method
+<?php
+class User
+{
+    protected $mailer;
+	public function setMailer(Mailer $mailer)
+    {
+        $this->mailer = $mailer;
+    }
+}
+
+coresponding test:
+    public function testNotificationIsSent()
+    {
+        $user = new User();
+        $mock_mailer=$this->createMock(Mailer::class);
+
+        $mock_mailer->method('sendMessage')->willReturn(true);
+
+        $user->setMailer($mock_mailer);
+        $user->email = 'example@example.org';
+        $this->assertTrue($user->notify("Hello"));
+    }
+?>
+when configuring mock object you can configure expected calls and specific arguments to check:
+<?php
+public function testNotificationIsSent()
+    {
+        $user = new User();
+        $mock_mailer=$this->createMock(Mailer::class);
+
+        $mock_mailer->expects($this->once())
+                    ->method('sendMessage')
+                    ->with($this->equalTo('example@example.org'), $this->equalTo('Hello'))
+                    ->willReturn(true);
+
+        $user->setMailer($mock_mailer);
+        $user->email = 'example@example.org';
+        $this->assertTrue($user->notify("Hello"));
+    }
+?>
+with a mock object all the code is overwirtten and it returns only null, so when you want to execute the real method:
+<?php
+        $mock_mailer = $this->getMockBuilder(Mailer::class)
+                            ->setMethods(null) //none of the methods will be stubbed
+                            ->getMock();
+?>
+with the Mockery framework the mock code becomes more readable
+<?php
+	public function testOrderIsProcessed()
+    {
+
+        $gateway = Mockery::mock('PaymentGateway');
+        $gateway->shouldReceive('charge')
+                ->once()
+                ->with(200)
+                ->andReturn(true);
+
+        $order = new Order($gateway);
+        $order->amount=200;
+        $this->assertTrue($order->process());
+    }
+?>
+to run a test several times with different input, you yould use a data provider like this
+<?php
+   public function titleProvider()
+    {
+        return [
+            ["An example article", "An_example_article"],
+            ["An  \n     example       article", "An_example_article"],
+            [" An example article ", "An_example_article"],
+            [" An! example! article ", "An_example_article"],
+        ];
+    }
+    /**
+     * @dataProvider titleProvider
+     */
+    public function testSlug($title, $slug)
+    {
+        $this->article->title= $title;
+        $this->assertEquals($this->article->getSlug(), $slug);
+    }
+?>
+Testing protected and private functions: 
+Protected: create a child class in the same folder, declare the protected or private function and override with this the function in the parent class,
+in the body of the function (now public) call the getID() function from the parent class, in the test you use the child classclass Item
+<?php
+class Item
+{
+    protected  function getID()
+    {
+        return rand();
+    }
+class ItemChild extends Item
+{
+    public function getID()
+    {
+        return parent::getID();
+    }
+class ItemTest extends TestCase
+{
+    public function testIDisAnInteger()
+    {
+        $item = new ItemChild();
+        $this->assertIsInt($item->getID());
+    }
+?>
+you shouldn't test private functions alltogether, but it can be done using "reflection"
+<?php
+class Item
+{
+    private function getToken()
+    {
+        return uniqid();
+    }
+class ItemTest extends TestCase
+{
+     public function testTokenIsAString()
+    {
+        $item = new Item();
+        $reflector = new ReflectionClass(Item::class);
+        $method = $reflector->getMethod('getToken');
+        $method->setAccessible(true);
+        $result = $method->invoke($item);
+        $this->assertIsString($result);
+    }
+?>
+testing a private function with arguments
+<?php
+class Item
+{
+    public function testPrefixedTokenStartsWithPrefix()
+    {
+        $item = new Item();
+        $reflector = new ReflectionClass(Item::class);
+        $method = $reflector->getMethod('getPrefixedToken');
+        $method->setAccessible(true);
+        $result = $method->invokeArgs($item, ['prefix']);
+        $this->assertStringStartsWith('prefix', $result);
+    }
+?>
+testing protected Attributes: also with reflections
+<?php
+class Product
+{
+    protected  $product_id;
+
+    public function __construct()
+    {
+        $this->product_id = rand();
+    }
+}
+class ProductTest extends TestCase
+{
+    public function testIDIsAnInteger()
+    {
+        $product = new Product();
+        $reflector = new ReflectionClass(Product::class);
+        $property = $reflector->getProperty('product_id');
+        $property->setAccessible(true);
+        $value = $property->getValue($product);
+        $this->assertIsInt($value);
+    }
+?> 
+Testing abstract classes: with child classes and then test this child class
+<?php
+    public function testNameAndTitleIncludesValueFromGetTitle()
+    {
+        $mock = $this->getMockBuilder(AbstractPerson::class)
+                     ->setConstructorArgs(['Smith'])
+                     ->getMockForAbstractClass();
+        $mock->method('getTitle')
+            ->willReturn('Dr.');
+        $this->assertEquals('Dr. Smith', $mock->getNameAndTitle());
+    }
+?> 
+Testing static methods: 
+<?php
+class MailerStatic
+{
+    public static function send(string $email, string $message)
+    {
+        if (empty($email))
+        {
+            throw new InvalidArgumentException();
+        }
+        echo "Send '$message' to $email";
+        return true;
+    }
+class MailerStaticTest extends TestCase
+{
+    public function testSendMessageReturnstrue()
+    {
+        $this->assertTrue(MailerStatic::send('example@example.org', 'Hello'));
+    }
+
+    public function testInvalidArgumentExceptionIfEmailIsEmpty()
+    {
+        $this->expectException(InvalidArgumentException::class);
+        MailerStatic::send('', 'Hello');
+    }
+?> 
+Problem with mocking or call the static method from another class, best to refactor the code and make it instant
+Mock a class that calls a static method is only possible wiht refacturing
+
+Pass the dependency as callable:
+<?php
+class UserStatic
+{
+    public $email;
+    protected $mailer_callable;
+    public function __construct(string $email)
+    {
+        $this->email = $email;
+    }
+    public function setMailerCallable(callable $mailer)
+    {
+        $this->mailer_callable = $mailer;
+    }
+    public function notify($message)
+    {
+        return call_user_func($this->mailer_callable, $this->email, $message);
+    }
+class UserStaticTest extends TestCase
+{
+    public function testNotifyReturnsTrue()
+    {
+        $user = new UserStatic('example@example.org');
+        $user->setMailerCallable([MailerStatic::class, 'send']);
+
+        $this->assertTrue($user->notify('Hello'));
+    }
+?> 
+with this it is possible to mock the static method to net get it called when testing and you can even set an anonymous function in its place:
+<?php
+use PHPUnit\Framework\TestCase;
+
+class UserStaticTest extends TestCase
+{
+    public function testNotifyReturnsTrue()
+    {
+        $user = new UserStatic('example@example.org');
+        $user->setMailerCallable(function()
+        {
+            echo "mocked";
+            return true;
+        }
+        );
+        $this->assertTrue($user->notify('Hello'));
+    }
+?> 
+Mocking a static method with Mockery:
+<?php
+class UserStaticMockery
+{
+    public $email;
+    public function __construct(string $email)
+    {
+        $this->email = $email;
+    }
+    public function notify($message)
+    {
+        return MailerStatic::send($this->email, $message);
+    }
+class UserStaticMockeryTest extends TestCase
+{
+    public function tearDown(): void
+    {
+        Mockery::close();
+    }
+    public function testNotifyReturnsTrue()
+    {
+        $user = new UserStaticMockery('example@example.org');
+        $mock = \Mockery::mock('alias:MailerStatic');
+        $mock->shouldReceive('send')
+            ->once()
+            ->with($user->email, 'Hello!')
+			->andReturn(true);
+        $this->assertTrue($user->notify('Hello!'));
+    }
+?> 
